@@ -1,4 +1,4 @@
-import { Client, Collection, Snowflake } from "discord.js";
+import { Client, Collection, CommandInteraction, GuildMember, Snowflake } from "discord.js";
 import { readdirSync } from "fs";
 import { join } from "path";
 import { Command } from "../interfaces/Command";
@@ -7,6 +7,7 @@ import { config } from "../utils/config";
 import { i18n } from "../utils/i18n";
 import { MissingPermissionsException } from "../utils/MissingPermissionsException";
 import { MusicQueue } from "./MusicQueue";
+import { updateGlobalCommands } from "../utils/refreshCommands";
 
 const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -21,7 +22,8 @@ export class Bot {
 
     this.client.on("ready", () => {
       console.log(`${this.client.user!.username} ready!`);
-      client.user!.setActivity(`${this.prefix}help and ${this.prefix}play`, { type: "LISTENING" });
+      client.user!.setActivity(`/help and /play`, { type: "LISTENING" });
+      updateGlobalCommands(client);
     });
 
     this.client.on("warn", (info) => console.log(info));
@@ -29,6 +31,7 @@ export class Bot {
 
     this.importCommands();
     this.onMessageCreate();
+    this.onEventsInteractionCreate();
   }
 
   private async importCommands() {
@@ -94,6 +97,59 @@ export class Bot {
           message.reply(error.toString()).catch(console.error);
         } else {
           message.reply(i18n.__("common.errorCommand")).catch(console.error);
+        }
+      }
+    });
+  }
+
+  private async onEventsInteractionCreate() {
+    this.client.on("interactionCreate", async interaction => {
+      if (!interaction.isApplicationCommand()) return;
+
+      const command = this.commands.get(interaction.commandName);
+
+      if (!command) {
+        console.error(`No command matching ${interaction.commandName}`);
+        return;
+      }
+
+      if (!command) return;
+
+      if (!this.cooldowns.has(command.name)) {
+        this.cooldowns.set(command.name, new Collection());
+      }
+
+      const now = Date.now();
+      const timestamps: any = this.cooldowns.get(command.name);
+      const cooldownAmount = (command.cooldown || 1) * 1000;
+      const member = interaction.member! as GuildMember;
+      if (timestamps.has(member.id)) {
+        const expirationTime = timestamps.get(member.id) + cooldownAmount;
+
+        if (now < expirationTime) {
+          const timeLeft = (expirationTime - now) / 1000;
+          return interaction.reply(i18n.__mf("common.cooldownMessage", { time: timeLeft.toFixed(1), name: command.name }));
+        }
+      }
+
+      timestamps.set(member.id, now);
+      setTimeout(() => timestamps.delete(member.id), cooldownAmount);
+
+      try {
+        const permissionsCheck: any = await checkPermissions(command, interaction as CommandInteraction);
+
+        if (permissionsCheck.result) {
+          command.execute(interaction);
+        } else {
+          throw new MissingPermissionsException(permissionsCheck.missing);
+        }
+      } catch (error: any) {
+        console.error(error);
+
+        if (error.message.includes("permissions")) {
+          interaction.reply(error.toString()).catch(console.error);
+        } else {
+          interaction.reply(i18n.__("common.errorCommand")).catch(console.error);
         }
       }
     });

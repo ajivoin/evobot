@@ -1,25 +1,34 @@
-import { Message, MessageEmbed, TextChannel } from "discord.js";
+import { CommandInteraction, GuildMember, Message, MessageEmbed, TextChannel } from "discord.js";
 import youtube from "youtube-sr";
 import { bot } from "../index";
 import { i18n } from "../utils/i18n";
+import { SlashCommandBuilder, SlashCommandStringOption } from "@discordjs/builders";
 
 type CustomTextChannel = TextChannel & { activeCollector: boolean };
 
 export default {
+  data: new SlashCommandBuilder()
+          .setName("search")
+          .setDescription(i18n.__("search.description"))
+          .addStringOption(
+            new SlashCommandStringOption()
+              .setRequired(true)
+              .setName("query")
+              .setDescription("Search query")
+          ),
   name: "search",
   description: i18n.__("search.description"),
-  async execute(message: Message, args: any[]) {
-    if (!args.length)
-      return message
-        .reply(i18n.__mf("search.usageReply", { prefix: bot.prefix, name: module.exports.name }))
-        .catch(console.error);
+  async execute(interaction: CommandInteraction) {
 
-    if ((message.channel as CustomTextChannel).activeCollector)
-      return message.reply(i18n.__("search.errorAlreadyCollector"));
 
-    if (!message.member?.voice.channel) return message.reply(i18n.__("search.errorNotChannel")).catch(console.error);
+    if ((interaction.channel as CustomTextChannel).activeCollector)
+      return interaction.reply(i18n.__("search.errorAlreadyCollector"));
 
-    const search = args.join(" ");
+    const member = interaction.member! as GuildMember;
+
+    if (!member.voice.channel) return interaction.reply(i18n.__("search.errorNotChannel")).catch(console.error);
+
+    const search = interaction.options.getString("query")!;
 
     let resultsEmbed = new MessageEmbed()
       .setTitle(i18n.__("search.resultEmbedTitle"))
@@ -33,36 +42,35 @@ export default {
         resultsEmbed.addField(`https://youtube.com/watch?v=${video.id}`, `${index + 1}. ${video.title}`)
       );
 
-      let resultsMessage = await message.channel.send({ embeds: [resultsEmbed] });
+      await interaction.reply({ embeds: [resultsEmbed] });
 
-      function filter(msg: Message) {
+      const filter = (msg: Message) => {
         const pattern = /^[1-9][0]?(\s*,\s*[1-9][0]?)*$/;
         return pattern.test(msg.content);
       }
 
-      (message.channel as CustomTextChannel).activeCollector = true;
+      (interaction.channel as CustomTextChannel).activeCollector = true;
 
-      const response = await message.channel.awaitMessages({ filter, max: 1, time: 30000, errors: ["time"] });
+      const response = await interaction.channel!.awaitMessages({ filter, max: 1, time: 30000, errors: ["time"] });
       const reply = response.first()!.content;
 
       if (reply.includes(",")) {
         let songs = reply.split(",").map((str) => str.trim());
 
         for (let song of songs) {
-          await bot.commands.get("play")!.execute(message, [resultsEmbed.fields[parseInt(song) - 1].name]);
+          await bot.commands.get("play")!.execute(interaction, [resultsEmbed.fields[parseInt(song) - 1].name]);
         }
       } else {
         const choice: any = resultsEmbed.fields[parseInt(response.first()?.toString()!) - 1].name;
-        bot.commands.get("play")!.execute(message, [choice]);
+        bot.commands.get("play")!.execute(interaction, [choice]);
       }
 
-      (message.channel as CustomTextChannel).activeCollector = false;
-      resultsMessage.delete().catch(console.error);
+      (interaction.channel as CustomTextChannel).activeCollector = false;
       response.first()!.delete().catch(console.error);
     } catch (error: any) {
       console.error(error);
-      (message.channel as CustomTextChannel).activeCollector = false;
-      message.reply(i18n.__("common.errorCommand")).catch(console.error);
+      (interaction.channel as CustomTextChannel).activeCollector = false;
+      interaction.reply(i18n.__("common.errorCommand")).catch(console.error);
     }
   }
 };

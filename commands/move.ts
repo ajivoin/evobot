@@ -1,32 +1,51 @@
 import move from "array-move";
-import { Message } from "discord.js";
+import { CommandInteraction, GuildMember } from "discord.js";
 import { i18n } from "../utils/i18n";
 import { canModifyQueue } from "../utils/queue";
 import { bot } from "../index";
+import { SlashCommandBuilder, SlashCommandIntegerOption } from "@discordjs/builders";
 
 export default {
+  data: new SlashCommandBuilder()
+          .setName("move")
+          .setDescription(i18n.__("move.description"))
+          .addIntegerOption(
+            new SlashCommandIntegerOption()
+              .setMinValue(1)
+              .setName("s1")
+              .setDescription("Song to move")
+              .setRequired(true))
+          .addIntegerOption(
+            new SlashCommandIntegerOption()
+              .setMinValue(1)
+              .setName("s2")
+              .setDescription("Location in queue to move song to")
+              .setRequired(true)
+          ),
   name: "move",
   aliases: ["mv"],
   description: i18n.__("move.description"),
-  execute(message: Message, args: number[]) {
-    const queue = bot.queues.get(message.guild!.id);
+  async execute(interaction: CommandInteraction) {
+    const queue = bot.queues.get(interaction.guild!.id);
 
-    if (!queue) return message.reply(i18n.__("move.errorNotQueue")).catch(console.error);
+    if (!queue) return interaction.reply(i18n.__("move.errorNotQueue")).catch(console.error);
 
-    if (!canModifyQueue(message.member!)) return;
+    if (!canModifyQueue(interaction.member! as GuildMember)) return;
 
-    if (!args.length) return message.reply(i18n.__mf("move.usagesReply", { prefix: bot.prefix }));
+    const args: number[] = [interaction.options.getInteger("s1")!, interaction.options.getInteger("s2")!];
+
+    if (!args.length) return interaction.reply(i18n.__mf("move.usagesReply", { prefix: "/" }));
 
     if (isNaN(args[0]) || args[0] <= 1)
-      return message.reply(i18n.__mf("move.usagesReply", { prefix: bot.prefix }));
-
+      return interaction.reply(i18n.__mf("move.usagesReply", { prefix: "/" }));
+    interaction.options.getInteger("s1");
     let song = queue.songs[args[0] - 1];
 
     queue.songs = move(queue.songs, args[0] - 1, args[1] == 1 ? 1 : args[1] - 1);
 
-    queue.textChannel.send(
+    interaction.reply(
       i18n.__mf("move.result", {
-        author: message.author,
+        author: interaction.member,
         title: song.title,
         index: args[1] == 1 ? 1 : args[1]
       })

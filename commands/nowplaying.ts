@@ -1,17 +1,21 @@
-import { Message, MessageEmbed } from "discord.js";
+import { CommandInteraction, MessageEmbed } from "discord.js";
 import { splitBar } from "string-progressbar";
 import { i18n } from "../utils/i18n";
 import { bot } from "../index";
+import { SlashCommandBuilder } from "@discordjs/builders";
 
 export default {
+  data: new SlashCommandBuilder()
+          .setName("np")
+          .setDescription(i18n.__("nowplaying.description")),
   name: "np",
   cooldown: 10,
   description: i18n.__("nowplaying.description"),
-  execute(message: Message) {
-    const queue = bot.queues.get(message.guild!.id);
+  async execute(interaction: CommandInteraction) {
+    const queue = bot.queues.get(interaction.guild!.id);
 
     if (!queue || !queue.songs.length)
-      return message.reply(i18n.__("nowplaying.errorNotQueue")).catch(console.error);
+      return interaction.reply(i18n.__("nowplaying.errorNotQueue")).catch(console.error);
 
     const song = queue.songs[0];
     const seek = queue.resource.playbackDuration / 1000;
@@ -23,14 +27,16 @@ export default {
       .setColor("#F8AA2A");
 
     if (song.duration > 0) {
-      nowPlaying.addField(
-        "\u200b",
-        new Date(seek * 1000).toISOString().substr(11, 8) +
+      nowPlaying.addFields(
+        {
+          name: "\u200b",
+          value: new Date(seek * 1000).toISOString().substr(11, 8) +
           "[" +
           splitBar(song.duration == 0 ? seek : song.duration, seek, 20)[0] +
           "]" +
           (song.duration == 0 ? " ◉ LIVE" : new Date(song.duration * 1000).toISOString().substr(11, 8)),
-        false
+          inline: false
+        }
       );
 
       nowPlaying.setFooter({
@@ -40,6 +46,6 @@ export default {
       });
     }
 
-    return message.reply({ embeds: [nowPlaying] });
+    return interaction.reply({ embeds: [nowPlaying] });
   }
 };

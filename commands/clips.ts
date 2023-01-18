@@ -1,11 +1,15 @@
 import { i18n } from "../utils/i18n";
 import { readdir } from "fs";
-import { Message } from "discord.js";
+import { CommandInteraction } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
 
 export default {
+  data: new SlashCommandBuilder()
+          .setName("clips")
+          .setDescription(i18n.__("clips.description")),
   name: "clips",
   description: i18n.__("clips.description"),
-  execute(message: Message) {
+  async execute(interaction: CommandInteraction) {
     readdir("./sounds", function (err, files) {
       if (err) return console.log("Unable to read directory: " + err);
 
@@ -15,7 +19,7 @@ export default {
         clips.push(file.substring(0, file.length - 4));
       });
 
-      message.reply(`${clips.join(" ")}`).catch(console.error);
+      interaction.reply(`${clips.join(" ")}`).catch(console.error);
     });
   }
 };

@@ -1,5 +1,5 @@
 import { DiscordGatewayAdapterCreator, joinVoiceChannel } from "@discordjs/voice";
-import { Message, MessageEmbed } from "discord.js";
+import { CommandInteraction, GuildMember, MessageEmbed } from "discord.js";
 import { bot } from "../index";
 import { MusicQueue } from "../structs/MusicQueue";
 import { Playlist } from "../structs/Playlist";
@@ -12,19 +12,20 @@ export default {
   aliases: ["pl"],
   description: i18n.__("playlist.description"),
   permissions: ["CONNECT", "SPEAK", "ADD_REACTIONS", "MANAGE_MESSAGES"],
-  async execute(message: Message, args: any[]) {
-    const { channel } = message.member!.voice;
+  async execute(interaction: CommandInteraction, args: any[]) {
+    const member = interaction.member! as GuildMember;
+    const { channel } = member.voice;
 
-    const queue = bot.queues.get(message.guild!.id);
+    const queue = bot.queues.get(interaction.guild!.id);
 
     if (!args.length)
-      return message.reply(i18n.__mf("playlist.usagesReply", { prefix: bot.prefix })).catch(console.error);
+      return interaction.reply(i18n.__mf("playlist.usagesReply", { prefix: "/" })).catch(console.error);
 
-    if (!channel) return message.reply(i18n.__("playlist.errorNotChannel")).catch(console.error);
+    if (!channel) return interaction.reply(i18n.__("playlist.errorNotChannel")).catch(console.error);
 
     if (queue && channel.id !== queue.connection.joinConfig.channelId)
-      return message
-        .reply(i18n.__mf("play.errorNotInSameChannel", { user: message.client.user!.username }))
+      return interaction
+        .reply(i18n.__mf("play.errorNotInSameChannel", { user: interaction.client.user!.username }))
         .catch(console.error);
 
     let playlist;
@@ -34,14 +35,14 @@ export default {
     } catch (error) {
       console.error(error);
 
-      return message.reply(i18n.__("playlist.errorNotFoundPlaylist")).catch(console.error);
+      return interaction.reply(i18n.__("playlist.errorNotFoundPlaylist")).catch(console.error);
     }
 
     if (queue) {
       queue.songs.push(...playlist.videos);
     } else {
       const newQueue = new MusicQueue({
-        message,
+        interaction: interaction,
         connection: joinVoiceChannel({
           channelId: channel.id,
           guildId: channel.guild.id,
@@ -49,7 +50,7 @@ export default {
         })
       });
 
-      bot.queues.set(message.guild!.id, newQueue);
+      bot.queues.set(interaction.guild!.id, newQueue);
       newQueue.songs.push(...playlist.videos);
       
       newQueue.enqueue(playlist.videos[0]);
@@ -68,9 +69,9 @@ export default {
       playlistEmbed.description =
         playlistEmbed.description!.substr(0, 2007) + i18n.__("playlist.playlistCharLimit");
 
-    message
+    interaction
       .reply({
-        content: i18n.__mf("playlist.startedPlaylist", { author: message.author }),
+        content: i18n.__mf("playlist.startedPlaylist", { author: interaction.member }),
         embeds: [playlistEmbed]
       })
       .catch(console.error);

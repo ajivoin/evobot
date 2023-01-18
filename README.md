@@ -34,7 +34,6 @@ Copy or Rename `config.json.example` to `config.json` and fill out the values:
 {
   "TOKEN": "",
   "MAX_PLAYLIST_SIZE": 10,
-  "PREFIX": "!",
   "PRUNING": false,
   "LOCALE": "en",
   "DEFAULT_VOLUME": 100,

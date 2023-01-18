@@ -1,12 +1,16 @@
-import { Message } from "discord.js";
+import { CommandInteraction } from "discord.js";
 import { writeFile } from "fs";
 import { Config } from "../interfaces/Config";
 import { i18n } from "../utils/i18n";
+import { SlashCommandBuilder } from "@discordjs/builders";
 
 export default {
+  data: new SlashCommandBuilder()
+          .setName("pruning")
+          .setDescription(i18n.__("pruning.description")),
   name: "pruning",
   description: i18n.__("pruning.description"),
-  async execute(message: Message) {
+  async execute(interaction: CommandInteraction) {
     let config: Config | undefined;
 
     try {
@@ -22,10 +26,10 @@ export default {
       writeFile("./config.json", JSON.stringify(config, null, 2), (err) => {
         if (err) {
           console.log(err);
-          return message.channel.send(i18n.__("pruning.errorWritingFile")).catch(console.error);
+          return interaction.channel!.send(i18n.__("pruning.errorWritingFile")).catch(console.error);
         }
 
-        return message.channel
+        return interaction.channel!
           .send(
             i18n.__mf("pruning.result", {
               result: config!.PRUNING ? i18n.__("common.enabled") : i18n.__("common.disabled")

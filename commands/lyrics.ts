@@ -1,4 +1,4 @@
-import { Message, MessageEmbed } from "discord.js";
+import { CommandInteraction, MessageEmbed } from "discord.js";
 import { i18n } from "../utils/i18n";
 // @ts-ignore
 import lyricsFinder from "lyrics-finder";
@@ -8,10 +8,10 @@ export default {
   name: "lyrics",
   aliases: ["ly"],
   description: i18n.__("lyrics.description"),
-  async execute(message: Message) {
-    const queue = bot.queues.get(message.guild!.id);
+  async execute(interaction: CommandInteraction) {
+    const queue = bot.queues.get(interaction.guild!.id);
 
-    if (!queue || !queue.songs.length) return message.reply(i18n.__("lyrics.errorNotQueue")).catch(console.error);
+    if (!queue || !queue.songs.length) return interaction.reply(i18n.__("lyrics.errorNotQueue")).catch(console.error);
 
     let lyrics = null;
     const title = queue.songs[0].title;
@@ -32,6 +32,6 @@ export default {
     if (lyricsEmbed.description!.length >= 2048)
       lyricsEmbed.description = `${lyricsEmbed.description!.substr(0, 2045)}...`;
 
-    return message.reply({ embeds: [lyricsEmbed] }).catch(console.error);
+    return interaction.reply({ embeds: [lyricsEmbed] }).catch(console.error);
   }
 };

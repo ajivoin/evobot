@@ -1,51 +1,46 @@
-import { Message } from "discord.js";
+import { CommandInteraction, GuildMember } from "discord.js";
 import { bot } from "../index";
 import { Song } from "../structs/Song";
 import { i18n } from "../utils/i18n";
 import { canModifyQueue } from "../utils/queue";
+import { SlashCommandBuilder, SlashCommandIntegerOption } from "@discordjs/builders";
 
 const pattern = /^[0-9]{1,2}(\s*,\s*[0-9]{1,2})*$/;
 
 export default {
+  data: new SlashCommandBuilder()
+          .setName("remove")
+          .setDescription(i18n.__("remove.description"))
+          .addIntegerOption(
+            new SlashCommandIntegerOption()
+              .setMinValue(1)
+              .setName("index")
+              .setDescription("Index in queue")
+              .setRequired(true)
+          ),
   name: "remove",
   aliases: ["rm"],
   description: i18n.__("remove.description"),
-  execute(message: Message, args: any[]) {
-    const queue = bot.queues.get(message.guild!.id);
+  execute(interaction: CommandInteraction) {
+    const queue = bot.queues.get(interaction.guild!.id);
 
-    if (!queue) return message.reply(i18n.__("remove.errorNotQueue")).catch(console.error);
+    if (!queue) return interaction.reply(i18n.__("remove.errorNotQueue")).catch(console.error);
 
-    if (!canModifyQueue(message.member!)) return i18n.__("common.errorNotChannel");
+    const member = interaction.member! as GuildMember;
 
-    if (!args.length) return message.reply(i18n.__mf("remove.usageReply", { prefix: bot.prefix }));
+    if (!canModifyQueue(member)) return i18n.__("common.errorNotChannel");
+    
+    const index = interaction.options.getInteger("index")!;
 
-    const removeArgs = args.join("");
-
-    const songs = removeArgs.split(",").map((arg) => parseInt(arg));
-
-    let removed: Song[] = [];
-
-    if (pattern.test(removeArgs)) {
-      queue.songs = queue.songs.filter((item, index) => {
-        if (songs.find((songIndex) => songIndex - 1 === index)) removed.push(item);
-        else return true;
-      });
-
-      queue.textChannel.send(
+    if (index <= queue.songs.length) {
+      return interaction.reply(
         i18n.__mf("remove.result", {
-          title: removed.map((song) => song.title).join("\n"),
-          author: message.author.id
-        })
-      );
-    } else if (!isNaN(args[0]) && args[0] >= 1 && args[0] <= queue.songs.length) {
-      return queue.textChannel.send(
-        i18n.__mf("remove.result", {
-          title: queue.songs.splice(args[0] - 1, 1)[0].title,
-          author: message.author.id
+          title: queue.songs.splice(index - 1, 1)[0].title,
+          author: member.id
         })
       );
     } else {
-      return message.reply(i18n.__mf("remove.usageReply", { prefix: bot.prefix }));
+      return interaction.reply(i18n.__mf("remove.usageReply", { prefix: "/" }));
     }
   }
 };

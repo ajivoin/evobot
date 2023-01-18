@@ -6,7 +6,7 @@ export default {
   name: "uptime",
   aliases: ["up"],
   description: i18n.__("uptime.description"),
-  execute(message: Message) {
+  async execute(message: Message) {
     let seconds = Math.floor(bot.client.uptime! / 1000);
     let minutes = Math.floor(seconds / 60);
     let hours = Math.floor(minutes / 60);
