@@ -1,17 +1,12 @@
-import { CommandInteraction } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { i18n } from "../utils/i18n";
-import { SlashCommandBuilder } from "@discordjs/builders";
 
 export default {
-  data: new SlashCommandBuilder()
-          .setName("ping")
-          .setDescription(i18n.__("ping.description")),
-  name: "ping",
+  data: new SlashCommandBuilder().setName("ping").setDescription(i18n.__("ping.description")),
   cooldown: 10,
-  description: i18n.__("ping.description"),
-  async execute(interaction: CommandInteraction) {
+  execute(interaction: ChatInputCommandInteraction) {
     interaction
-      .reply({ content: i18n.__mf("ping.result", { ping: Math.round(interaction.client.ws.ping) }), ephemeral: true})
+      .reply({ content: i18n.__mf("ping.result", { ping: Math.round(interaction.client.ws.ping) }), ephemeral: true })
       .catch(console.error);
   }
 };

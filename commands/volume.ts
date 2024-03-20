@@ -1,36 +1,38 @@
-import { CommandInteraction, GuildMember, Message } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import { bot } from "../index";
 import { i18n } from "../utils/i18n";
 import { canModifyQueue } from "../utils/queue";
-import { bot } from "../index";
-import { SlashCommandBuilder, SlashCommandIntegerOption } from "@discordjs/builders";
 
 export default {
   data: new SlashCommandBuilder()
-          .setName("volume")
-          .setDescription(i18n.__("volume.description"))
-          .addIntegerOption(
-            new SlashCommandIntegerOption()
-              .setMinValue(1)
-              .setMaxValue(100)
-              .setName("value")
-              .setDescription("Set to a number from 1 to 100.")
-              .setRequired(true)
-          ),
-  name: "volume",
-  aliases: ["v"],
-  description: i18n.__("volume.description"),
-  async execute(interaction: CommandInteraction) {
+    .setName("volume")
+    .setDescription(i18n.__("volume.description"))
+    .addIntegerOption((option) => option.setName("volume").setDescription(i18n.__("volume.description"))),
+  execute(interaction: ChatInputCommandInteraction) {
     const queue = bot.queues.get(interaction.guild!.id);
+    const guildMemer = interaction.guild!.members.cache.get(interaction.user.id);
+    const volumeArg = interaction.options.getInteger("volume");
 
-    if (!queue) return interaction.reply(i18n.__("volume.errorNotQueue")).catch(console.error);
-    const member = interaction.member! as GuildMember;
-    if (!canModifyQueue(member))
-      return interaction.reply(i18n.__("volume.errorNotChannel")).catch(console.error);
-    const value = interaction.options.getInteger("value")!;
+    if (!queue)
+      return interaction.reply({ content: i18n.__("volume.errorNotQueue"), ephemeral: true }).catch(console.error);
 
-    queue.volume = value;
-    queue.resource.volume?.setVolumeLogarithmic(value / 100);
+    if (!canModifyQueue(guildMemer!))
+      return interaction.reply({ content: i18n.__("volume.errorNotChannel"), ephemeral: true }).catch(console.error);
 
-    return interaction.reply(i18n.__mf("volume.result", { arg: value })).catch(console.error);
+    if (!volumeArg || volumeArg === queue.volume)
+      return interaction
+        .reply({ content: i18n.__mf("volume.currentVolume", { volume: queue.volume }) })
+        .catch(console.error);
+
+    if (isNaN(volumeArg))
+      return interaction.reply({ content: i18n.__("volume.errorNotNumber"), ephemeral: true }).catch(console.error);
+
+    if (Number(volumeArg) > 100 || Number(volumeArg) < 0)
+      return interaction.reply({ content: i18n.__("volume.errorNotValid"), ephemeral: true }).catch(console.error);
+
+    queue.volume = volumeArg;
+    queue.resource.volume?.setVolumeLogarithmic(volumeArg / 100);
+
+    return interaction.reply({ content: i18n.__mf("volume.result", { arg: volumeArg }) }).catch(console.error);
   }
 };

@@ -1,48 +1,51 @@
-import { canModifyQueue } from "../utils/queue";
-import { i18n } from "../utils/i18n";
-import { CommandInteraction, GuildMember, Message } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { bot } from "../index";
-import { SlashCommandBuilder, SlashCommandIntegerOption } from "@discordjs/builders";
+import { i18n } from "../utils/i18n";
+import { canModifyQueue } from "../utils/queue";
 
 export default {
   data: new SlashCommandBuilder()
-          .setName("skipto")
-          .setDescription(i18n.__("skipto.description"))
-          .addIntegerOption(
-            new SlashCommandIntegerOption()
-              .setRequired(true)
-              .setName("index")
-              .setDescription("Index in queue to skip to")
-          ),
-  name: "skipto",
-  aliases: ["st"],
-  description: i18n.__("skipto.description"),
-  async execute(interaction: CommandInteraction) {
-    const index = interaction.options.getInteger("index")!; 
+    .setName("skipto")
+    .setDescription(i18n.__("skipto.description"))
+    .addIntegerOption((option) =>
+      option.setName("number").setDescription(i18n.__("skipto.args.number")).setRequired(true)
+    ),
+  execute(interaction: ChatInputCommandInteraction) {
+    const playlistSlotArg = interaction.options.getInteger("number");
+    const guildMemer = interaction.guild!.members.cache.get(interaction.user.id);
+
+    if (!playlistSlotArg || isNaN(playlistSlotArg))
+      return interaction
+        .reply({
+          content: i18n.__mf("skipto.usageReply", { prefix: bot.prefix, name: module.exports.name }),
+          ephemeral: true
+        })
+        .catch(console.error);
 
     const queue = bot.queues.get(interaction.guild!.id);
 
-    if (!queue) return interaction.reply(i18n.__("skipto.errorNotQueue")).catch(console.error);
-    const member = interaction.member! as GuildMember;
-    if (!canModifyQueue(member)) return i18n.__("common.errorNotChannel");
+    if (!queue)
+      return interaction.reply({ content: i18n.__("skipto.errorNotQueue"), ephemeral: true }).catch(console.error);
 
-    if (index > queue.songs.length)
+    if (!canModifyQueue(guildMemer!)) return i18n.__("common.errorNotChannel");
+
+    if (playlistSlotArg > queue.songs.length)
       return interaction
-        .reply(i18n.__mf("skipto.errorNotValid", { length: queue.songs.length }))
+        .reply({ content: i18n.__mf("skipto.errorNotValid", { length: queue.songs.length }), ephemeral: true })
         .catch(console.error);
 
     if (queue.loop) {
-      for (let i = 0; i < index - 2; i++) {
+      for (let i = 0; i < playlistSlotArg - 2; i++) {
         queue.songs.push(queue.songs.shift()!);
       }
     } else {
-      queue.songs = queue.songs.slice(index - 2);
+      queue.songs = queue.songs.slice(playlistSlotArg - 2);
     }
 
     queue.player.stop();
 
     interaction
-      .reply(i18n.__mf("skipto.result", { author: member, arg: index - 1 }))
+      .reply({ content: i18n.__mf("skipto.result", { author: interaction.user.id, arg: playlistSlotArg - 1 }) })
       .catch(console.error);
   }
 };
